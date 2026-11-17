@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.obsidian/
+data.json
+shiguang-topics.json
+shiguang-drafts.json
+excluded-ids.json
+.env
+.env.*
+*.local.json
+*.log
+*.zip
+*.tmp
+vault/
+test-output/
+screenshots/
+coverage/

@@ -1,0 +1,70 @@
+.fox-shiguang-room {
+  --room-accent: #597862;
+  padding: clamp(16px, 4vw, 48px);
+  overflow: auto;
+}
+
+.fox-shiguang-room h1 {
+  margin: 0 0 1rem;
+  padding: 1.25rem 1rem;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: linear-gradient(125deg, color-mix(in srgb, var(--room-accent) 25%, var(--background-primary)), var(--background-secondary));
+}
+
+.fox-shiguang-tabs,
+.fox-shiguang-wizard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.fox-shiguang-tabs [aria-pressed="true"] {
+  box-shadow: inset 0 -2px var(--room-accent);
+  font-weight: var(--font-semibold);
+}
+
+.fox-shiguang-path,
+.fox-shiguang-media-sources dd,
+.fox-shiguang-wizard-progress {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.fox-shiguang-file-list {
+  list-style: none;
+  padding: 0;
+}
+
+.fox-shiguang-file-list button {
+  height: auto;
+  min-height: var(--input-height);
+  width: 100%;
+  margin-bottom: 0.35rem;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.fox-shiguang-media-sources {
+  border-top: 1px solid var(--background-modifier-border);
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+}
+
+.fox-shiguang-media-sources dd {
+  margin: 0 0 0.55rem;
+}
+
+.fox-shiguang-wizard-actions {
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.fox-shiguang-wizard-error {
+  color: var(--text-error);
+}
+
+.fox-shiguang-wizard-error:empty {
+  display: none;
+}
