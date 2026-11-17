@@ -1,17 +1,26 @@
 import { App, Modal, Setting } from 'obsidian';
 import {
+  DEFAULT_PATHS,
+  DEFAULT_ROOT,
   defaultCategories,
-  FOLDER_LABELS,
-  normalizeFolderPaths,
+  derivePaths,
+  inferRoot,
   type FolderPaths,
   type ShiguangConfig,
 } from './config';
+import { detectCollectionFolders, initializeFolders, useExistingFolders } from './folders';
 
 const STEPS = ['欢迎来到林间拾光室', '选择收藏目录', '初始化主题分类', '设置 AI', '完成设置'];
 
 export class ShiguangWizard extends Modal {
   private step = 0;
   private paths: FolderPaths;
+  private readonly initialPaths: FolderPaths;
+  private root: string;
+  private readonly initialRoot: string;
+  private readonly recognized: boolean;
+  private readonly canCreateDefault: boolean;
+  private creatingFolders = false;
   private readonly canSeedCategories: boolean;
   private useTemplate: boolean;
   private aiEnabled: boolean;
@@ -25,7 +34,13 @@ export class ShiguangWizard extends Modal {
     private readonly onDismiss: () => void,
   ) {
     super(app);
-    this.paths = { ...config.paths };
+    const existing = detectCollectionFolders(app.vault, config);
+    this.initialPaths = { ...(existing ?? config.paths) };
+    this.paths = this.initialPaths;
+    this.root = inferRoot(this.paths) ?? '';
+    this.initialRoot = this.root;
+    this.recognized = Boolean(existing);
+    this.canCreateDefault = !config.initialized && (!existing || this.root === DEFAULT_ROOT);
     this.canSeedCategories = !config.initialized && config.categories.length === 0;
     this.useTemplate = this.canSeedCategories;
     this.aiEnabled = config.ai.enabled;
@@ -95,12 +110,17 @@ export class ShiguangWizard extends Modal {
       attr: { type: 'button' },
     });
     next.addEventListener('click', () => {
+      if (this.creatingFolders) return;
       if (lastStep) {
         void this.finish(actions, error);
         return;
       }
       try {
-        if (this.step === 1) this.paths = normalizeFolderPaths(this.paths);
+        if (this.step === 1) {
+          this.paths = this.root === this.initialRoot
+            ? this.initialPaths
+            : useExistingFolders(this.app.vault, derivePaths(this.root));
+        }
       } catch (cause) {
         error.setText(cause instanceof Error ? cause.message : '请检查收藏目录。');
         return;
@@ -112,15 +132,44 @@ export class ShiguangWizard extends Modal {
   }
 
   private renderPaths() {
-    this.contentEl.createEl('p', { text: '填写 Vault 内的相对路径。目录暂时不存在时，也可以继续使用这些设置。' });
-    for (const key of Object.keys(FOLDER_LABELS) as (keyof FolderPaths)[]) {
-      const label = FOLDER_LABELS[key];
+    this.contentEl.createEl('p', {
+      text: this.recognized
+        ? '已找到现有收藏文件夹。继续可沿用它，也可填写另一处已存在的收藏根目录。'
+        : this.canCreateDefault
+          ? '可创建默认目录，或填写 Vault 内已经存在的收藏根目录。'
+          : '可保留当前设置，或填写 Vault 内已经存在的收藏根目录。'
+    });
+    new Setting(this.contentEl)
+      .setName('收藏根目录')
+      .setDesc(this.initialRoot
+        ? '在根目录下使用 RedNote/Inbox、Bookmarks、Cache 和 Covers。'
+        : '当前沿用独立配置的路径。留空继续保留，或选择已有的标准目录。')
+      .addText(text => {
+        text.inputEl.setAttribute('aria-label', '收藏根目录');
+        text.setPlaceholder(DEFAULT_ROOT).setValue(this.root).onChange(value => { this.root = value; });
+      });
+    if (this.canCreateDefault) {
+      const status = this.contentEl.createEl('p', { attr: { role: 'status' } });
       new Setting(this.contentEl)
-        .setName(label)
-        .addText(text => {
-          text.inputEl.setAttribute('aria-label', label);
-          text.setValue(this.paths[key]).onChange(value => { this.paths[key] = value; });
-        });
+        .setName('默认收藏目录')
+        .setDesc('在小红书raw/RedNote 下补齐四个子目录，保留现有文件。')
+        .addButton(button => button.setButtonText('一键创建默认目录').onClick(async () => {
+          if (this.root !== DEFAULT_ROOT) {
+            status.setText('请先将收藏根目录设为「小红书raw」，或直接选择已有目录。');
+            return;
+          }
+          this.creatingFolders = true;
+          button.setDisabled(true);
+          try {
+            await initializeFolders(this.app.vault, DEFAULT_PATHS);
+            status.setText('默认目录已准备完成。');
+          } catch (error) {
+            status.setText(error instanceof Error ? error.message : '未能创建默认目录。');
+          } finally {
+            this.creatingFolders = false;
+            button.setDisabled(false);
+          }
+        }));
     }
   }
 
@@ -144,7 +193,7 @@ export class ShiguangWizard extends Modal {
     buttons.forEach(button => { button.disabled = true; });
     error.empty();
     try {
-      await this.complete(normalizeFolderPaths(this.paths), this.useTemplate, this.aiEnabled);
+      await this.complete(this.paths, this.useTemplate, this.aiEnabled);
       if (!this.closed) this.close();
     } catch (cause) {
       if (!this.closed) {

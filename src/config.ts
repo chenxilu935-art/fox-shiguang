@@ -15,6 +15,7 @@ export interface Category {
 export interface ShiguangConfig {
   version: 1;
   initialized: boolean;
+  root?: string;
   paths: FolderPaths;
   autoRefresh: boolean;
   defaultPage: 'inbox' | 'bookmarks';
@@ -27,12 +28,27 @@ export const FOLDER_LABELS: Record<keyof FolderPaths, string> = {
   inbox: 'Inbox', bookmarks: 'Bookmarks', cache: 'Cache', covers: 'Covers'
 };
 
-export const DEFAULT_PATHS: Readonly<FolderPaths> = Object.freeze({
-  inbox: 'RedNote/Inbox',
-  bookmarks: 'RedNote/Bookmarks',
-  cache: 'RedNote/Cache',
-  covers: 'RedNote/Covers'
+export const DEFAULT_ROOT = '小红书raw';
+export const LEGACY_DEFAULT_PATHS: Readonly<FolderPaths> = Object.freeze({
+  inbox: 'RedNote/Inbox', bookmarks: 'RedNote/Bookmarks', cache: 'RedNote/Cache', covers: 'RedNote/Covers'
 });
+
+export function derivePaths(root: string): FolderPaths {
+  const base = normalizeVaultPath(root) + '/RedNote';
+  return normalizeFolderPaths({
+    inbox: base + '/Inbox', bookmarks: base + '/Bookmarks', cache: base + '/Cache', covers: base + '/Covers'
+  });
+}
+
+export const DEFAULT_PATHS: Readonly<FolderPaths> = Object.freeze(derivePaths(DEFAULT_ROOT));
+
+export function inferRoot(paths: FolderPaths): string | undefined {
+  const suffix = '/RedNote/Inbox';
+  if (!paths.inbox.endsWith(suffix)) return undefined;
+  const root = paths.inbox.slice(0, -suffix.length);
+  const expected = derivePaths(root);
+  return (Object.keys(expected) as (keyof FolderPaths)[]).every(key => paths[key] === expected[key]) ? root : undefined;
+}
 
 export function defaultCategories(): Category[] {
   return [
@@ -51,6 +67,7 @@ export function defaultConfig(): ShiguangConfig {
   return {
     version: 1,
     initialized: false,
+    root: DEFAULT_ROOT,
     paths: { ...DEFAULT_PATHS },
     autoRefresh: true,
     defaultPage: 'inbox',
@@ -115,8 +132,9 @@ export function validateConfig(value: unknown): ShiguangConfig {
     return { id: category.id, name, icon: category.icon, color: category.color };
   });
 
+  const paths = normalizeFolderPaths(config.paths);
   return {
-    version: 1, initialized: config.initialized, paths: normalizeFolderPaths(config.paths),
+    version: 1, initialized: config.initialized, root: inferRoot(paths), paths,
     autoRefresh: config.autoRefresh, defaultPage: config.defaultPage, sort: config.sort, categories,
     ai: { enabled: config.ai.enabled, provider: config.ai.provider.trim(), model: config.ai.model.trim() }
   };

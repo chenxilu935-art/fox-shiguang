@@ -8,7 +8,8 @@ const { outputFiles } = await build({
   write: false,
   format: 'esm'
 });
-const { createCategory, defaultCategories, defaultConfig, normalizeVaultPath, normalizeFolderPaths, validateConfig }
+const { createCategory, defaultCategories, defaultConfig, derivePaths, LEGACY_DEFAULT_PATHS,
+  normalizeVaultPath, normalizeFolderPaths, validateConfig }
   = await import('data:text/javascript;base64,' + Buffer.from(outputFiles[0].contents).toString('base64'));
 
 test('fresh settings are isolated and AI is off', () => {
@@ -16,9 +17,10 @@ test('fresh settings are isolated and AI is off', () => {
   assert.equal(fresh.initialized, false);
   assert.deepEqual(fresh.ai, { enabled: false, provider: '', model: '' });
   assert.deepEqual(fresh.categories, []);
-  assert.equal(fresh.paths.inbox, 'RedNote/Inbox');
+  assert.equal(fresh.root, '小红书raw');
+  assert.equal(fresh.paths.inbox, '小红书raw/RedNote/Inbox');
   fresh.paths.inbox = 'Other/Inbox';
-  assert.equal(defaultConfig().paths.inbox, 'RedNote/Inbox');
+  assert.equal(defaultConfig().paths.inbox, '小红书raw/RedNote/Inbox');
 });
 
 test('accept relative Vault paths and reject boundaries or overlap', () => {
@@ -27,9 +29,20 @@ test('accept relative Vault paths and reject boundaries or overlap', () => {
     assert.throws(() => normalizeVaultPath(invalid));
   }
   const paths = defaultConfig().paths;
-  assert.throws(() => normalizeFolderPaths({ ...paths, bookmarks: 'rednote/INBOX' }));
-  assert.throws(() => normalizeFolderPaths({ ...paths, bookmarks: 'RedNote/Inbox/Kept' }));
+  assert.throws(() => normalizeFolderPaths({ ...paths, bookmarks: '小红书raw/rednote/INBOX' }));
+  assert.throws(() => normalizeFolderPaths({ ...paths, bookmarks: paths.inbox + '/Kept' }));
   assert.deepEqual(normalizeFolderPaths(paths), paths);
+});
+
+test('keep previously saved source paths and derive the standard root from the effective paths', () => {
+  const legacy = validateConfig({ ...defaultConfig(), initialized: true, paths: LEGACY_DEFAULT_PATHS });
+  assert.equal(legacy.root, undefined);
+  assert.deepEqual(legacy.paths, LEGACY_DEFAULT_PATHS);
+  assert.equal(legacy.initialized, true);
+
+  const standard = validateConfig({ ...legacy, paths: derivePaths('共享/收藏') });
+  assert.equal(standard.root, '共享/收藏');
+  assert.equal(standard.paths.cache, '共享/收藏/RedNote/Cache');
 });
 
 test('keep category identity, order and intentionally empty configuration', () => {

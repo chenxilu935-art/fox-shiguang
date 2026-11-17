@@ -1,7 +1,10 @@
 import { App, getIcon, Modal, Notice, PluginSettingTab, setIcon, Setting } from 'obsidian';
-import { createCategory, defaultCategories, DEFAULT_PATHS, FOLDER_LABELS, normalizeVaultPath } from './config';
+import {
+    createCategory, defaultCategories, DEFAULT_PATHS, DEFAULT_ROOT, derivePaths, FOLDER_LABELS, normalizeVaultPath,
+} from './config';
 import type { Category, FolderPaths, ShiguangConfig } from './config';
 import type FoxShiguangPlugin from './main';
+import { hasCollectionFolders, useExistingFolders } from './folders';
 
 export class ShiguangSettingsTab extends PluginSettingTab {
     constructor(app: App, private readonly plugin: FoxShiguangPlugin) {
@@ -31,26 +34,63 @@ export class ShiguangSettingsTab extends PluginSettingTab {
 
     private showSources(container: HTMLElement): void {
         new Setting(container).setName('内容来源').setHeading();
+        let proposedRoot = this.plugin.config.root ?? '';
+        new Setting(container).setName('收藏根目录')
+            .setDesc('在根目录下使用 RedNote/Inbox、Bookmarks、Cache 和 Covers。')
+            .addText(text => {
+                text.inputEl.setAttribute('aria-label', '收藏根目录');
+                text.setPlaceholder(DEFAULT_ROOT).setValue(proposedRoot).onChange(value => { proposedRoot = value; });
+            })
+            .addButton(button => button.setButtonText('使用已有目录').onClick(async () => {
+                const target = proposedRoot;
+                button.setDisabled(true);
+                const saved = await this.save(draft => {
+                    draft.paths = useExistingFolders(this.app.vault, derivePaths(target));
+                });
+                button.setDisabled(false);
+                if (saved) {
+                    this.display();
+                    new Notice('已切换收藏根目录。');
+                }
+            }))
+            .addButton(button => button.setButtonText('移动现有根目录')
+                .setDisabled(!this.plugin.config.root)
+                .onClick(() => this.confirmRootMove(proposedRoot)));
+
+        if (this.plugin.config.paths.inbox !== DEFAULT_PATHS.inbox) {
+            const standardExists = hasCollectionFolders(this.app.vault, DEFAULT_PATHS);
+            new Setting(container).setName('RedLink 路径核对')
+                .setDesc(standardExists
+                    ? 'Vault 中还存在默认位置的收藏目录。当前拾光室使用另一处 Inbox，请核对 RedLink 的实际写入位置。'
+                    : '拾光室的 Inbox 与 RedLink 1.5.2 适配版默认位置不同。请核对 RedLink 的实际写入位置。');
+        }
+
+        const advanced = container.createEl('details');
+        advanced.open = !this.plugin.config.root;
+        advanced.createEl('summary', { text: '高级目录设置' });
         const pending = { ...this.plugin.config.paths };
         const keys = Object.keys(FOLDER_LABELS) as (keyof FolderPaths)[];
         for (const key of keys) {
             const label = FOLDER_LABELS[key];
-            new Setting(container).setName(label).addText(text => {
+            new Setting(advanced).setName(label).addText(text => {
                 text.inputEl.setAttribute('aria-label', label);
                 text.setPlaceholder(DEFAULT_PATHS[key]).setValue(pending[key]).onChange(value => {
                     pending[key] = value;
                 });
             });
         }
-        new Setting(container).setName('收藏文件夹')
-            .setDesc('填写当前 Vault 内的相对路径。保存路径不会移动文件。')
-            .addButton(button => button.setButtonText('保存路径').onClick(async () => {
+        new Setting(advanced).setName('独立目录')
+            .setDesc('填写 Vault 相对路径。切换目录时保留原文件。')
+            .addButton(button => button.setButtonText('保存高级路径').onClick(async () => {
                 button.setDisabled(true);
                 const saved = await this.save(draft => {
-                    for (const key of keys) draft.paths[key] = normalizeVaultPath(pending[key]);
+                    draft.paths = useExistingFolders(this.app.vault, pending);
                 });
                 button.setDisabled(false);
-                if (saved) new Notice('收藏目录已保存。');
+                if (saved) {
+                    this.display();
+                    new Notice('收藏目录已保存。');
+                }
             }));
         new Setting(container).setName('自动刷新')
             .setDesc('收藏文件夹内的文件发生变化时更新统计。')
@@ -75,6 +115,40 @@ export class ShiguangSettingsTab extends PluginSettingTab {
                     button.setDisabled(false);
                 }
             }));
+    }
+
+    private confirmRootMove(value: string): void {
+        const currentRoot = this.plugin.config.root;
+        if (!currentRoot) return;
+        let target: string;
+        try {
+            target = normalizeVaultPath(value);
+        } catch (error) {
+            new Notice(error instanceof Error ? error.message : '请填写目标根目录。');
+            return;
+        }
+        const modal = new Modal(this.app);
+        modal.titleEl.setText('移动现有收藏根目录');
+        modal.contentEl.createEl('p', {
+            text: `将「${currentRoot}」及其全部内容移动到「${target}」。目标必须为空缺位置。移动后请核对 RedLink 的写入路径。`
+        });
+        new Setting(modal.contentEl)
+            .addButton(button => button.setButtonText('取消').onClick(() => modal.close()))
+            .addButton(button => button.setButtonText('确认移动').setWarning().onClick(async () => {
+                button.setDisabled(true);
+                try {
+                    if (this.plugin.config.root !== currentRoot) throw new Error('当前根目录已变化，请重新确认。');
+                    await this.plugin.moveCollectionRoot(target, currentRoot);
+                    modal.close();
+                    this.display();
+                    new Notice('收藏根目录已移动。');
+                } catch (error) {
+                    new Notice(error instanceof Error ? error.message : '移动失败，请检查收藏目录。');
+                } finally {
+                    button.setDisabled(false);
+                }
+            }));
+        modal.open();
     }
 
     private showCategories(container: HTMLElement): void {
@@ -256,5 +330,8 @@ export class ShiguangSettingsTab extends PluginSettingTab {
             .setDesc('插件配置和分类保存在当前 Vault 的插件数据中。收藏与媒体位于所选文件夹。');
         new Setting(container).setName('首次启动向导')
             .addButton(button => button.setButtonText('重新运行向导').onClick(() => this.plugin.openWizard()));
+        new Setting(container).setName('旧拾光室主题')
+            .setDesc('选择旧主题 JSON，检查分类冲突和文章匹配情况。')
+            .addButton(button => button.setButtonText('预览旧主题导入').onClick(() => this.plugin.openLegacyPreview()));
     }
 }

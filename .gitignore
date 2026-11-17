@@ -15,3 +15,7 @@ vault/
 test-output/
 screenshots/
 coverage/
+/小红书raw/
+/RedNote/
+*.pem
+*.key
