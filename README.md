@@ -2,6 +2,10 @@
 
 面向 Obsidian 的本地小红书收藏整理插件，插件 ID 为 `fox-shiguang`。Stage 3.1 是独立运行骨架，包含原生设置、欢迎向导以及 Inbox 和 Bookmarks 的只读文件名预览。
 
+抓取小红书收藏和下载媒体需要配套使用基于 [RedLink（上游作者 boaleiyt）](https://github.com/boaleiyt/redlink) 改编的拾光室适配插件。狐の林间拾光室负责 Vault 内收藏的整理与展示。两个插件各自管理配置，通过 Markdown 与媒体文件协作。
+
+本分支保留已验收的 Stage 3.1 基线。主题关联体验版在 [Stage 3.2 开发分支](https://github.com/chenxilu935-art/fox-shiguang/tree/stage-3.2-topic-associations)。
+
 ## 安装
 
 使用桌面版 Obsidian。关闭隔离 Vault 的受限模式，将安装 ZIP 中的 `fox-shiguang` 文件夹放入该 Vault 的 `.obsidian/plugins/`，再从第三方插件列表启用。首次启动会打开设置向导。也可从命令面板运行「狐の林间拾光室：打开拾光室」，从 Obsidian 插件设置修改路径和分类。
