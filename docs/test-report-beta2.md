@@ -18,7 +18,7 @@
 
 ## 布局与范围
 
-[宽屏截图](images/forest-wide.png) · [较窄窗口截图](images/forest-narrow.png) · [阅读器截图](images/reader.png)。这些截图只含虚构测试文章和合成媒体。
+[宽屏截图](images/forest-wide.png) · [较窄窗口截图](images/forest-narrow.png) · [阅读器截图](images/reader.png)。这些截图只含虚构测试文章和合成媒体。较窄窗口以 800×820 CSS 视口验证，iframe 为 756×742，响应式断点实际生效。
 
 提取完整森林页面和阅读器，移除工作台侧栏、冗余说明、模拟推荐、抓取入口与未启用草稿控件。原角色图因再分发权待核实而排除；森林生成背景保留。公开截图仅使用虚构文章及合成媒体，不把真实封面替换成演示图片。
 
