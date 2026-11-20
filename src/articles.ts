@@ -13,6 +13,10 @@ export interface Article {
   topics: string[];
   topicState: 'missing' | 'valid' | 'invalid';
   coverUrl?: string;
+  tags: string[];
+  mediaCount: number;
+  summary?: string;
+  sourceUrl: string;
 }
 
 type EditableTopics = { topics: string[]; topicState: 'missing' | 'valid' };
@@ -30,8 +34,10 @@ export function readArticleTopics(fields: Record<string, unknown>): Pick<Article
     : { topics: [], topicState: 'invalid' };
 }
 
-function findCover(app: App, file: TFile, key: string, ref: unknown, paths: FolderPaths): string | undefined {
-  if (typeof ref !== 'string' || !ref || /^[/\\]|[:?#\u0000-\u001f]/.test(ref)) return;
+export function localMediaCandidates(file: TFile, key: string, ref: unknown, paths: FolderPaths): string[] {
+  if (typeof ref !== 'string') return [];
+  try { ref = decodeURIComponent(ref); } catch { /* Literal percent signs are valid local filenames. */ }
+  if (typeof ref !== 'string' || !ref || /^[/\\]|[:?#\u0000-\u001f]/.test(ref)) return [];
   const source = ref.replaceAll('\\', '/');
   const normalize = (raw: string): string | undefined => {
     const parts: string[] = [];
@@ -55,9 +61,16 @@ function findCover(app: App, file: TFile, key: string, ref: unknown, paths: Fold
   if (cacheSuffix && !cacheSuffix.split('/').some(part => part === '..')) options.push(normalize(paths.cache + '/' + id + '/' + cacheSuffix));
   const coversSuffix = source.match(/(?:^|\/)RedNote\/Covers\/(.+)$/)?.[1];
   if (coversSuffix && !coversSuffix.split('/').some(part => part === '..')) options.push(normalize(paths.covers + '/' + coversSuffix));
-  for (const path of options) {
-    if (!path || !IMAGE_PATH.test(path) ||
-        !(path.startsWith(paths.cache + '/') || path.startsWith(paths.covers + '/'))) continue;
+  const mediaRoot = paths.inbox.endsWith('/Inbox') ? paths.inbox.slice(0, -6) + '/Media' : undefined;
+  const mediaSuffix = source.match(/(?:^|\/)RedNote\/Media\/(.+)$/)?.[1];
+  if (mediaRoot && mediaSuffix) options.push(normalize(mediaRoot + '/' + mediaSuffix));
+  return [...new Set(options.filter((path): path is string => Boolean(path &&
+    [paths.cache, paths.covers, mediaRoot, file.parent?.path].some(root => root && path.startsWith(root + '/')))))];
+}
+
+function findCover(app: App, file: TFile, key: string, refs: unknown[], paths: FolderPaths): string | undefined {
+  for (const ref of refs) for (const path of localMediaCandidates(file, key, ref, paths)) {
+    if (!IMAGE_PATH.test(path)) continue;
     const image = app.vault.getAbstractFileByPath(path);
     if (image instanceof TFile) return app.vault.getResourcePath(image);
   }
@@ -79,7 +92,12 @@ export function readArticle(app: App, file: TFile, paths: FolderPaths): Article 
     file,
     path: file.path,
     ...readArticleTopics(fields),
-    coverUrl: findCover(app, file, key, fields.coverPath, paths)
+    coverUrl: findCover(app, file, key, [fields.coverPath, ...(Array.isArray(fields.media)
+      ? fields.media.filter(entry => entry && typeof entry === 'object').map(entry => entry.path ?? entry.localPath) : [])], paths),
+    tags: Array.isArray(fields.tags) ? fields.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+    mediaCount: Array.isArray(fields.media) ? fields.media.length : 0,
+    summary: typeof fields.description === 'string' ? fields.description.slice(0, 400) : undefined,
+    sourceUrl: 'https://www.xiaohongshu.com/explore/' + key.slice(4),
   };
 }
 

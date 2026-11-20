@@ -91,3 +91,9 @@ test('ignore network or unrelated media paths and leave malformed note identity 
   fields.id = 'only a title';
   assert.equal(readArticle(app, file, paths), undefined);
 });
+
+test('use local manifest image when coverPath is missing or invalid', () => {
+  const { app, file } = fixture({ coverPath: 'https://example.invalid/private.jpg',
+    media: [{ kind: 'video', path: 'https://example.invalid/video.mp4' }, { kind: 'image', path: coverPath }] });
+  assert.equal(readArticle(app, file, paths).coverUrl, 'app://fake/' + coverPath);
+});

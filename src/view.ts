@@ -1,7 +1,12 @@
-import { ItemView, Modal, Notice, TFolder, setIcon, type App, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Notice, TFile, TFolder, type App, type TAbstractFile, type WorkspaceLeaf } from 'obsidian';
 import { readArticle, setArticleTopics, type Article } from './articles';
-import { type Category, type FolderPaths } from './config';
+import { createCategory, type FolderPaths } from './config';
+import { readOriginal } from './reader';
+import { retainArticles, trashArticles } from './operations';
 import type FoxShiguangPlugin from './main';
+import template from './ui/shell.html';
+import stylesheet from './ui/forest.css';
+import ui from './ui/ui.js';
 import forestDesk from '../assets/forest-desk.jpg';
 
 export const ROOM_VIEW = 'fox-shiguang-room';
@@ -44,214 +49,135 @@ export function scanSources(app: App, paths: FolderPaths): SourceSnapshot {
   return { status, notes, skipped, duplicateKeys };
 }
 
-type Filter = { kind: 'all' | 'uncategorized' } | { kind: 'topic'; id: string };
 
+/** Sandboxed original forest UI; all file operations remain in the plugin host. */
 export class ShiguangView extends ItemView {
+  private frame?: HTMLIFrameElement;
+  private token = crypto.randomUUID();
   private page?: Page;
-  private filter: Filter = { kind: 'all' };
-  private picker?: TopicPicker;
+  private generation = 0;
+  private revision = 0;
+  private current = new Map<string, Article>();
+  private readerLinks = new Map<string, Set<string>>();
+  private closed = false;
+  private operating = false;
 
-  constructor(leaf: WorkspaceLeaf, private readonly plugin: FoxShiguangPlugin) {
-    super(leaf);
-  }
-
+  constructor(leaf: WorkspaceLeaf, private readonly plugin: FoxShiguangPlugin) { super(leaf); }
   getViewType(): string { return ROOM_VIEW; }
   getDisplayText(): string { return '狐の林间拾光室'; }
   getIcon(): string { return 'trees'; }
-
   async onOpen(): Promise<void> {
-    this.page = undefined;
-    this.filter = { kind: 'all' };
+    this.closed = false;
+    this.contentEl.empty(); this.contentEl.addClass('fox-shiguang-room');
+    this.contentEl.style.cssText = 'padding:0;overflow:hidden';
+    this.frame = this.contentEl.createEl('iframe', { attr: { title: '林间拾光室', sandbox: 'allow-scripts allow-modals' } });
+    this.frame.style.cssText = 'width:100%;height:100%;border:0;display:block;background:#071d15';
+    this.registerDomEvent(window, 'message', event => { void this.receive(event); });
+    const script = `const SHIGUANG_TOKEN=${JSON.stringify(this.token)};const SHIGUANG_SOURCE={page:'inbox',counts:{inbox:0,bookmarks:0},ai:false};const SHIGUANG_ITEMS=[];const SHIGUANG_TOPICS={data:{revision:0,categories:[],assignments:{}}};${ui}`;
+    this.frame.srcdoc = template.replace('/*SHIGUANG_STYLE*/', () => stylesheet).replace('__SHIGUANG_HERO__', () => forestDesk).replace('/*SHIGUANG_SCRIPT*/', () => script);
+    this.frame.onload = () => { this.renderSources(); };
     await this.plugin.rescan();
-    this.renderSources();
   }
-
-  async onClose(): Promise<void> {
-    this.picker?.close();
-    this.picker = undefined;
-    this.contentEl.empty();
+  async onClose(): Promise<void> { this.closed = true; this.generation++; this.current.clear(); this.readerLinks.clear(); this.frame = undefined; this.contentEl.empty(); }
+  private post(type: string, data: Record<string, unknown> = {}): void { this.frame?.contentWindow?.postMessage({ type, token: this.token, ...data }, '*'); }
+  private topics() {
+    const assignments: Record<string, string[]> = {};
+    for (const article of this.current.values()) assignments[article.key] = article.topics;
+    return { data: { revision: this.revision, categories: this.plugin.config.categories, assignments } };
   }
-
-  renderSources(): void {
-    const config = this.plugin.config;
-    const page = this.page ?? config.defaultPage;
-    const snapshot = this.plugin.getSources();
-    const categories = new Map(config.categories.map(category => [category.id, category]));
-    const root = this.contentEl;
-    root.empty();
-    root.addClass('fox-shiguang-room');
-    const scene = root.createEl('header', { cls: 'fox-shiguang-scene' });
-    scene.style.setProperty('--fox-shiguang-forest', `url("${forestDesk}")`);
-    scene.createEl('h1', { text: '狐の林间拾光室' });
-
-    const tabs = scene.createDiv({ cls: 'fox-shiguang-tabs', attr: { 'aria-label': '收藏目录' } });
-    const pageLabels: Record<Page, string> = { inbox: '待整理 · Inbox', bookmarks: '已保留 · Bookmarks' };
-    for (const key of ['inbox', 'bookmarks'] as const) {
-      const button = tabs.createEl('button', { text: pageLabels[key] });
-      button.setAttribute('aria-pressed', String(key === page));
-      button.onclick = () => {
-        this.page = key;
-        this.renderSources();
-      };
-    }
-
-    if (this.filter.kind === 'topic' && !categories.has(this.filter.id)) this.filter = { kind: 'all' };
-    this.renderFilters(root, config.categories);
-    const notes = snapshot.notes[page].filter(article => {
-      const filter = this.filter;
-      if (filter.kind === 'all') return true;
-      if (article.topicState === 'invalid') return false;
-      return filter.kind === 'topic' ? article.topics.includes(filter.id) : article.topics.length === 0;
-    });
-    notes.sort((left, right) =>
-      left.title.localeCompare(right.title, 'zh-CN', { numeric: true }) || left.path.localeCompare(right.path));
-    if (config.sort === 'name-desc') notes.reverse();
-
+  renderSources(): void { void this.publish().catch(() => { if (!this.closed) new Notice('无法刷新收藏，请重新扫描目录。'); }); }
+  private async publish(): Promise<void> {
+    const generation = ++this.generation;
+    const config = this.plugin.config, snapshot = this.plugin.getSources(), page = this.page ?? config.defaultPage;
+    const notes = snapshot.notes[page]; this.current = new Map(notes.map(article => [article.key, article]));
+    this.revision++;
+    const items = await Promise.all(notes.map(async article => ({
+      id: article.key, fingerprint: `${article.path}:${article.file.stat.mtime}:${article.file.stat.size}`, topicKey: article.key, title: article.title, author: article.author, source: article.author || '',
+      sourceUrl: article.sourceUrl, noteId: article.key.slice(4), tags: article.tags || [], summary: article.summary || '', selected: false,
+      invalid: article.topicState === 'invalid' || snapshot.duplicateKeys.has(article.key),
+      coverUrl: await this.coverData(article),
+    })));
+    if (this.closed || generation !== this.generation) return;
     const status = snapshot.status[page];
-    if (status !== 'ready' || !notes.length) {
-      const message = status === 'file' ? '此路径指向文件。请在插件设置中选择文件夹。'
-        : status === 'missing' ? '收藏目录尚未创建。请在插件设置中检查来源。'
-          : this.filter.kind === 'all' ? '此目录暂无可识别的小红书收藏。' : '当前目录没有符合筛选条件的收藏。';
-      root.createEl('p', { text: message, cls: 'fox-shiguang-room-note' });
-    }
-    if (snapshot.skipped[page]) root.createEl('p', {
-      text: `${snapshot.skipped[page]} 篇 Markdown 暂无可用的小红书原帖 ID。`, cls: 'fox-shiguang-room-note',
-    });
-    if (!notes.length) return;
-    const grid = root.createDiv({ cls: 'fox-shiguang-grid' });
-    for (const article of notes) this.renderCard(grid, article, categories, snapshot.duplicateKeys.has(article.key));
+    const error = status === 'file' ? '收藏目录指向文件，请在插件设置中检查来源。' : status === 'missing' ? '收藏目录尚未创建，请在插件设置中检查来源。' : undefined;
+    const info = { page, counts: { inbox: snapshot.notes.inbox.length, bookmarks: snapshot.notes.bookmarks.length }, ai: config.ai.enabled, sort: config.sort, error,
+      warnings: [snapshot.skipped[page] ? `${snapshot.skipped[page]} 篇 Markdown 暂无可用的原帖 ID` : '', snapshot.duplicateKeys.size ? '存在重复原帖 ID，相关主题与文件操作已暂停' : ''].filter(Boolean) };
+    this.post('fox-shiguang-source', { info, items, topics: this.topics() });
   }
-
-  private renderFilters(root: HTMLElement, categories: Category[]): void {
-    const group = root.createDiv({
-      cls: 'fox-shiguang-filters', attr: { role: 'group', 'aria-label': '按主题筛选' },
-    });
-    const options: { name: string; target: Filter }[] = [
-      { name: '全部', target: { kind: 'all' } },
-      { name: '未分类', target: { kind: 'uncategorized' } },
-      ...categories.map(({ name, id }) => ({ name, target: { kind: 'topic', id } as const })),
-    ];
-    for (const { name, target } of options) {
-      const active = this.filter.kind === target.kind &&
-        (target.kind !== 'topic' || (this.filter.kind === 'topic' && this.filter.id === target.id));
-      const button = group.createEl('button', { text: name, attr: { 'aria-pressed': String(active) } });
-      button.onclick = () => {
-        this.filter = target;
-        this.renderSources();
-      };
-    }
+  private async coverData(article: Article): Promise<string | undefined> {
+    if (!article.coverUrl) return;
+    // Original opaque iframe needs bytes, never a machine-specific app:// URL.
+    const image = this.app.vault.getFiles().find(file => this.app.vault.getResourcePath(file) === article.coverUrl);
+    if (!image || image.stat.size > 5 * 1024 * 1024) return;
+    try {
+      const bytes = new Uint8Array(await this.app.vault.readBinary(image));
+      let binary = ''; for (let at = 0; at < bytes.length; at += 16384) binary += String.fromCharCode(...bytes.subarray(at, at + 16384));
+      const extension = image.extension.toLowerCase();
+      return `data:image/${extension === 'jpg' ? 'jpeg' : extension};base64,${btoa(binary)}`;
+    } catch { return; }
   }
-
-  private renderCard(grid: HTMLElement, article: Article, categories: Map<string, Category>, duplicate: boolean): void {
-    const card = grid.createEl('article', { cls: 'fox-shiguang-card', attr: { 'data-article-key': article.key } });
-    const cover = card.createDiv({ cls: 'fox-shiguang-card-cover' });
-    if (article.coverUrl) {
-      cover.createEl('img', { attr: { src: article.coverUrl, alt: '', loading: 'lazy' } });
-    } else {
-      setIcon(cover, 'image');
-      cover.createSpan({ text: '暂无封面' });
-    }
-    const copy = card.createDiv({ cls: 'fox-shiguang-card-copy' });
-    copy.createEl('h2', { text: article.title });
-    if (article.author) copy.createEl('p', { text: article.author, cls: 'fox-shiguang-room-note' });
-    const topics = copy.createDiv({ cls: 'fox-shiguang-card-topics', attr: { 'aria-label': '已有主题' } });
-    if (article.topicState === 'invalid') topics.createSpan({ text: '主题属性格式有误' });
-    else if (!article.topics.length) topics.createSpan({ text: '未分类' });
-    for (const id of new Set(article.topics)) {
-      const category = categories.get(id);
-      const chip = topics.createSpan({ text: category?.name ?? `未知主题 · ${id}`, cls: 'fox-shiguang-topic-chip' });
-      if (category) chip.style.setProperty('--fox-shiguang-topic-color', category.color);
-    }
-    const actions = copy.createDiv({ cls: 'fox-shiguang-card-actions' });
-    const open = actions.createEl('button', { text: '打开笔记' });
-    open.onclick = () => {
-      void this.app.workspace.getLeaf('tab').openFile(article.file).catch(() =>
-        new Notice('无法打开这篇笔记，请重新扫描目录。'));
-    };
-    const edit = actions.createEl('button', { text: '设置主题' });
-    edit.disabled = duplicate || article.topicState === 'invalid';
-    if (duplicate) copy.createEl('p', { text: '原帖 ID 重复，请处理重复文件后编辑。', cls: 'fox-shiguang-room-note' });
-    edit.onclick = () => {
-      if (this.picker || article.topicState === 'invalid') return;
-      const expected = { topics: [...article.topics], topicState: article.topicState };
-      this.picker = new TopicPicker(this.app, article, this.plugin.config.categories, async ids => {
-        const categories = new Set(this.plugin.config.categories.map(category => category.id));
-        if (ids.some(id => !categories.has(id) && !expected.topics.includes(id))) {
-          throw new Error('分类设置已变化，请重新打开文章后再选择。');
-        }
-        await setArticleTopics(this.app, () => this.plugin.config.paths, article.key, expected, ids);
+  private async receive(event: MessageEvent): Promise<void> {
+    const m = event.data;
+    if (this.closed || event.source !== this.frame?.contentWindow || m?.token !== this.token) return;
+    try {
+      if (m.type === 'fox-shiguang-switch-page' && (m.page === 'inbox' || m.page === 'bookmarks')) { this.page = m.page; await this.publish(); return; }
+      if (m.type === 'fox-shiguang-topics') { await this.editTopics(m); return; }
+      if (m.type === 'fox-shiguang-read-original' && Number.isSafeInteger(m.request)) {
+        if (m.revision !== this.revision) throw new Error('收藏已变化，请重新打开阅读。');
+        const generation = this.generation;
+        const article = this.current.get(m.key); if (!article) throw new Error('文章已移走，请重新扫描。');
+        const result = await readOriginal(this.app, article, this.plugin.config.paths);
+        if (this.closed || generation !== this.generation || this.current.get(m.key) !== article) return;
+        this.readerLinks.set(m.key, new Set(result.links)); this.post('fox-shiguang-original-result', { key: m.key, request: m.request, result }); return;
+      }
+      if (m.type === 'fox-shiguang-open-reader-link' && typeof m.url === 'string' && /^https?:\/\//i.test(m.url) && this.readerLinks.get(m.key)?.has(m.url)) { window.open(m.url, '_blank', 'noopener,noreferrer'); return; }
+      if (m.type === 'fox-shiguang-collection-action') {
+        if (m.revision !== this.revision) throw new Error('收藏已变化，请重新选择。');
+        if (this.operating || !['retain', 'trash'].includes(m.action) || !Array.isArray(m.keys) || !m.keys.length || m.keys.length > 10000) return;
+        const keys = [...new Set<string>(m.keys)];
+        const articles = keys.map(key => this.current.get(key));
+        if (articles.some(article => !article)) throw new Error('收藏已变化，请重新选择。');
+        this.operating = true;
         try {
-          await this.plugin.rescan({ key: article.key, topics: ids });
-        } catch {
-          new Notice('主题已保存，可从插件设置重新扫描目录。');
-        }
-      }, () => { this.picker = undefined; });
-      this.picker.open();
-    };
-  }
-}
-
-class TopicPicker extends Modal {
-  private dismissed = false;
-
-  constructor(
-    app: App, private readonly article: Article, private readonly categories: Category[],
-    private readonly onSave: (ids: string[]) => Promise<void>, private readonly onDismiss: () => void,
-  ) {
-    super(app);
-  }
-
-  onOpen(): void {
-    this.setTitle('设置主题');
-    this.modalEl.addClass('fox-shiguang-topic-picker');
-    const { contentEl, article, categories } = this;
-    contentEl.createEl('p', { text: article.title, cls: 'fox-shiguang-topic-picker-title' });
-    const selected = new Set(article.topics);
-    const defined = new Set(categories.map(category => category.id));
-    const options = [
-      ...categories.map(({ id, name }) => ({ id, name })),
-      ...[...selected].filter(id => !defined.has(id)).map(id => ({ id, name: `未知主题 · ${id}` })),
-    ];
-    if (!options.length) contentEl.createEl('p', { text: '可在 Obsidian 插件设置中添加主题分类。' });
-    const choices = contentEl.createDiv({ cls: 'fox-shiguang-topic-choices' });
-    const checkboxes = options.map(({ id, name }) => {
-      const label = choices.createEl('label');
-      const checkbox = label.createEl('input', { attr: { type: 'checkbox' } });
-      checkbox.checked = selected.has(id);
-      checkbox.onchange = () => {
-        if (checkbox.checked) selected.add(id);
-        else selected.delete(id);
-      };
-      label.createSpan({ text: name });
-      return checkbox;
-    });
-    const error = contentEl.createEl('p', { cls: 'fox-shiguang-wizard-error', attr: { role: 'alert' } });
-    const actions = contentEl.createDiv({ cls: 'fox-shiguang-wizard-actions' });
-    const cancel = actions.createEl('button', { text: '取消' });
-    cancel.onclick = () => this.close();
-    const save = actions.createEl('button', { text: '保存主题', cls: 'mod-cta' });
-    save.onclick = async () => {
-      const unchanged = selected.size === article.topics.length && article.topics.every(id => selected.has(id));
-      if (unchanged) {
-        this.close();
-        return;
+          const operation = m.action === 'retain' ? retainArticles : trashArticles;
+          const result = await operation(this.app, () => this.plugin.config.paths, articles as Article[]);
+          await this.plugin.rescan(); this.post('fox-shiguang-collection-result', { ...result });
+        } finally { this.operating = false; }
       }
-      [save, cancel, ...checkboxes].forEach(input => { input.disabled = true; });
-      error.empty();
-      try {
-        await this.onSave([...selected]);
-        if (!this.dismissed) this.close();
-      } catch (cause) {
-        error.setText(cause instanceof Error ? cause.message : '无法保存主题，请重试。');
-        [save, cancel, ...checkboxes].forEach(input => { input.disabled = false; });
-      }
-    };
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : '操作失败，请重试。';
+      if (m.type === 'fox-shiguang-read-original') this.post('fox-shiguang-original-result', { key: m.key, request: m.request, error });
+      else if (m.type === 'fox-shiguang-collection-action') this.post('fox-shiguang-collection-result', { error });
+      else new Notice(error);
+    }
   }
-
-  onClose(): void {
-    if (this.dismissed) return;
-    this.dismissed = true;
-    this.contentEl.empty();
-    this.onDismiss();
+  private async editTopics(m: any): Promise<void> {
+    if (!Number.isSafeInteger(m.request)) return;
+    let error: string | undefined;
+    try {
+      if (m.revision !== this.revision) throw new Error('收藏或分类已变化，请重新打开主题选择。');
+      const action = m.action;
+      if (!action || typeof action.type !== 'string') throw new Error('主题操作无效。');
+      if (action.type === 'assign') {
+        const article = this.current.get(action.key), available = new Set(this.plugin.config.categories.map(t => t.id));
+        if (!article || article.topicState === 'invalid' || this.plugin.getSources().duplicateKeys.has(article.key)) throw new Error('文章主题格式有误或 ID 重复，请先在笔记中处理。');
+        if (!Array.isArray(action.ids) || action.ids.some((id: unknown) => typeof id !== 'string' || (!available.has(id) && !article.topics.includes(id)))) throw new Error('主题已变化，请重新选择。');
+        const unknown = article.topics.filter(id => !available.has(id));
+        const ids = [...new Set<string>([...action.ids, ...unknown])];
+        await setArticleTopics(this.app, () => this.plugin.config.paths, article.key, { topics: [...article.topics], topicState: article.topicState }, ids);
+        await this.plugin.rescan({ key: article.key, topics: ids });
+      } else {
+        await this.plugin.updateConfig(draft => {
+          const index = draft.categories.findIndex(t => t.id === action.id);
+          if (action.type === 'create') draft.categories.push(createCategory(action.name));
+          else if (index < 0) throw new Error('主题已删除，请重新打开。');
+          else if (action.type === 'rename') draft.categories[index].name = action.name.trim();
+          else if (action.type === 'delete') draft.categories.splice(index, 1);
+          else if (action.type === 'move') { const target = index + (action.direction === 'up' ? -1 : 1); if (target >= 0 && target < draft.categories.length) [draft.categories[index], draft.categories[target]] = [draft.categories[target], draft.categories[index]]; }
+          else throw new Error('未知主题操作。');
+        });
+      }
+    } catch (cause) { error = cause instanceof Error ? cause.message : '主题保存失败。'; }
+    this.post('fox-shiguang-topics-result', { request: m.request, snapshot: this.topics(), error });
   }
 }

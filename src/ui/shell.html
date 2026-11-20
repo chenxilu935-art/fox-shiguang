@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: app: blob:; media-src app: data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>林间拾光室</title><style>/*SHIGUANG_STYLE*/</style></head>
+<body data-state="library">
+<main id="room-main">
+  <header class="scene">
+    <img id="scene-image" alt="森林窗边的暖灯、书桌与熟睡的猫" src="__SHIGUANG_HERO__">
+    <div class="scene-shade"></div>
+    <div class="scene-title"><h1 id="room-title">林间拾光室</h1></div>
+    <div class="hero-bottom" id="library-tools"><div class="tabs" role="tablist" aria-label="浏览内容"><button role="tab" aria-selected="true" data-tab="all">待整理 <span id="all-count"></span></button><button role="tab" aria-selected="false" data-tab="ai" hidden><i data-icon="sparkles"></i>AI</button><button role="tab" aria-selected="false" data-tab="selected">已保留 <span id="tab-count"></span></button></div></div>
+  </header>
+  <section id="library-view" aria-label="收藏">
+
+    <div class="browse-tools panel">
+      <div class="filter-line"><div class="filters" id="filters" aria-label="主题分类筛选"></div><button id="manage-topics" class="text-button">管理分类</button><label class="sort-control"><span class="sr-only">排序</span><select id="sort"><option value="default">默认顺序</option><option value="title">按标题</option></select></label></div>
+
+      <p id="browse-status" class="browse-status" role="status"></p>
+      <label class="topic-search"><span class="sr-only">搜索标题、作者和原始标签</span><input id="topic-search" type="search" placeholder="搜索标题、作者、原始标签…" autocomplete="off"></label>
+      <p id="topic-store-status" class="subtle" role="status"></p>
+    </div>
+    <div id="collection-grid" class="collection-grid browse-panel"></div>
+    <aside class="selection-panel panel" aria-label="已选收藏">
+      <div class="panel-heading"><h2>已选 <span id="selection-count">0</span> 项</h2><button class="text-button" id="clear-selection"><i data-icon="trash"></i>清空</button></div>
+      <div id="selected-list" class="selected-list"></div>
+      <div id="ai-panel" hidden><div class="gold-divider" aria-hidden="true">◇</div><h2>AI</h2><p class="subtle">尚未连接 AI 服务</p></div>
+      <button id="retain-selection" class="gold enter-desk">保留所选</button><button id="trash-selection" class="outline-button">移到回收站</button>
+      <button id="enter-desk" class="outline-button">阅读所选</button>
+    </aside>
+  </section>
+</main>
+<dialog id="desk-view" class="desk-preview" aria-labelledby="desk-note-title">
+  <div class="preview-frame">
+    <header class="preview-header">
+      <div class="preview-heading-row"><span>森林书桌</span><button id="close-preview" class="preview-close" aria-label="关闭预览">×</button></div>
+      <h2 id="desk-note-title" class="desk-note-title"></h2><p id="preview-source" class="subtle"></p>
+      <div class="preview-controls"><label class="preview-note-control"><span id="desk-count" hidden></span><select id="preview-note" aria-label="切换预览内容"></select></label></div>
+    </header>
+    <section class="preview-body paper" aria-label="原文阅读">
+        <div id="original-pane"><div id="original-content" class="original-content markdown-rendered" aria-live="polite"></div><details id="original-details"><summary>来源详情</summary><div id="original-metadata"></div></details><button id="open-original-source" class="paper-button">打开原帖来源 ↗</button></div>
+    </section>
+    <footer class="preview-footer"><button class="outline-button" data-library>返回收藏</button><p id="preview-feedback" role="status" hidden></p></footer>
+  </div>
+</dialog>
+<div id="room-toast" class="toast" role="status" hidden></div>
+<dialog id="topics-dialog" class="topic-dialog" aria-labelledby="topics-title"><div class="panel-heading"><div><h2 id="topics-title">管理主题分类</h2></div><button data-close-topic-dialog aria-label="关闭分类管理">×</button></div><div id="topic-manager-list"></div><div id="topic-create-form" class="topic-create" role="group" aria-label="新增主题分类"><label><span class="sr-only">新分类名称</span><input id="new-topic-name" maxlength="32" placeholder="新建一个主题…" required></label><button class="gold" type="button">新增分类</button></div><div id="topic-delete-confirm" hidden><p id="topic-delete-message"></p><div class="dialog-actions"><button id="topic-delete-cancel">保留分类</button><button id="topic-delete-accept" class="gold">仅删除分类</button></div></div><p class="topic-error" id="topic-manager-error" role="status"></p></dialog>
+<dialog id="topic-assignment-dialog" class="topic-dialog" aria-labelledby="topic-assignment-title"><div class="panel-heading"><h2 id="topic-assignment-title">为收藏选择主题</h2><button data-close-topic-dialog aria-label="关闭主题选择">×</button></div><p id="topic-assignment-name" class="subtle"></p><div id="topic-assignment-options"></div><p class="topic-error" id="topic-assignment-error" role="status"></p><button id="topic-assignment-save" class="gold">保存主题</button></dialog>
+<dialog id="topic-metadata-dialog" class="topic-dialog" aria-labelledby="topic-metadata-title"><div class="panel-heading"><h2 id="topic-metadata-title">来源与原始标签</h2><button data-close-topic-dialog aria-label="关闭来源信息">×</button></div><div id="topic-metadata-content"></div></dialog>
+<script>/*SHIGUANG_SCRIPT*/</script>
+</body></html>
