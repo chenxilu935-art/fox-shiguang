@@ -14,7 +14,7 @@ await build({
   bundle: true,
   format: 'cjs',
   target: 'es2020',
-  loader: { '.jpg': 'dataurl', '.html': 'text', '.css': 'text', '.js': 'text' },
+  loader: { '.jpg': 'dataurl', '.png': 'dataurl', '.html': 'text', '.css': 'text', '.js': 'text' },
   external: ['obsidian']
 });
 await mkdir(folder, { recursive: true });

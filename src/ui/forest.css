@@ -108,9 +108,18 @@ html.preview-open{overflow:hidden;scrollbar-gutter:stable}
 .preview-header .draft-badge{color:#e5cf94;border-color:#c8b17650;background:#d8bc7110}
 
 /* Standalone adaptation; original forest layout and reader remain intact. */
-.scene-title{margin-top:58px}.scene-title h1{font-size:45px}.room-nav .brand{font-size:22px;color:var(--gold);white-space:normal}.room-nav nav button{display:block}.hero-bottom{right:24px}.browse-status:empty{display:none}.selection-panel #retain-selection,.selection-panel #enter-desk,.selection-panel #trash-selection{width:100%;margin-top:12px}#ai-panel{margin:18px 0}#ai-panel .subtle{margin-top:8px}.card-summary:empty{display:none}.card-summary{min-height:0}.preview-header .preview-heading-row{align-items:center}.preview-footer{justify-content:space-between}.collection-entry[data-invalid=true] [data-topic-item]{opacity:.45}.topic-manager-row input{min-width:0}.scene-quote,.room-subtitle{display:none}
+.hero-bottom{right:24px}.browse-status:empty{display:none}.selection-panel #retain-selection,.selection-panel #enter-desk,.selection-panel #trash-selection{width:100%;margin-top:12px}#ai-panel{margin:18px 0}#ai-panel .subtle{margin-top:8px}.card-summary:empty{display:none}.card-summary{min-height:0}.preview-header .preview-heading-row{align-items:center}.preview-footer{justify-content:space-between}.collection-entry[data-invalid=true] [data-topic-item]{opacity:.45}.topic-manager-row input{min-width:0}
 
-/* The standalone plugin has no dashboard navigation rail. */
-#room-main{margin-left:0}
 
 .preview-heading-row>span{flex:1}
+
+/* Original forest branding and atmosphere, restored for the standalone room. */
+.forest-brand{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.forest-brand-image{display:block;width:46px;max-width:32%;height:auto;aspect-ratio:274/166;object-fit:contain;flex-shrink:0;mix-blend-mode:lighten;mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent),linear-gradient(0deg,transparent,#000 7%,#000 93%,transparent);mask-composite:intersect}
+.brand .forest-brand-label{font:inherit;color:inherit;letter-spacing:inherit}
+.forest-decoration{display:flex;align-items:flex-end;justify-content:center;pointer-events:none}
+.forest-decoration img{display:block;width:100%;height:auto;object-fit:contain;aspect-ratio:274/166;mix-blend-mode:lighten;mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent),linear-gradient(0deg,transparent,#000 7%,#000 93%,transparent);mask-composite:intersect}
+.room-nav{overflow-y:auto}.room-nav>*{flex-shrink:0}
+@media(max-width:1190px){.scene{height:auto;min-height:360px;padding-bottom:85px}.scene-quote{display:block;position:static;font-size:12px;letter-spacing:1px;margin-top:14px;line-height:1.6}.scene-quote br{display:none}.scene-quote span{padding-left:8px}}
+@media(max-width:1000px){.forest-brand-image{width:38px}}
+@media(max-width:620px){.room-nav{display:grid;grid-template-columns:minmax(0,1fr) 140px;gap:12px 18px}.room-nav .brand{grid-column:1/-1}.room-nav nav{grid-column:1;grid-row:3}.nav-motto{display:block;grid-column:1;grid-row:2;font-size:9px}.nav-forest{display:block;grid-column:2;grid-row:2/4;margin:0;align-self:center}.nav-note{display:block;grid-column:1/-1;padding-top:10px}.nav-note p{margin-top:4px}.scene{min-height:360px}.scene-title{max-width:none}.scene-quote{font-size:11px;line-height:1.7}}

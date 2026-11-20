@@ -8,6 +8,7 @@ import template from './ui/shell.html';
 import stylesheet from './ui/forest.css';
 import ui from './ui/ui.js';
 import forestDesk from '../assets/forest-desk.jpg';
+import foxPines from '../assets/fox-pines.png';
 
 export const ROOM_VIEW = 'fox-shiguang-room';
 type Page = 'inbox' | 'bookmarks';
@@ -74,7 +75,7 @@ export class ShiguangView extends ItemView {
     this.frame.style.cssText = 'width:100%;height:100%;border:0;display:block;background:#071d15';
     this.registerDomEvent(window, 'message', event => { void this.receive(event); });
     const script = `const SHIGUANG_TOKEN=${JSON.stringify(this.token)};const SHIGUANG_SOURCE={page:'inbox',counts:{inbox:0,bookmarks:0},ai:false};const SHIGUANG_ITEMS=[];const SHIGUANG_TOPICS={data:{revision:0,categories:[],assignments:{}}};${ui}`;
-    this.frame.srcdoc = template.replace('/*SHIGUANG_STYLE*/', () => stylesheet).replace('__SHIGUANG_HERO__', () => forestDesk).replace('/*SHIGUANG_SCRIPT*/', () => script);
+    this.frame.srcdoc = template.replace('/*SHIGUANG_STYLE*/', () => stylesheet).replace('__SHIGUANG_HERO__', () => forestDesk).replaceAll('__SHIGUANG_FOX__', () => foxPines).replace('/*SHIGUANG_SCRIPT*/', () => script);
     this.frame.onload = () => { this.renderSources(); };
     await this.plugin.rescan();
   }

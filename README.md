@@ -2,9 +2,11 @@
 
 面向 Obsidian 的本地小红书收藏整理与展示插件，插件 ID 为 `fox-shiguang`。抓取小红书收藏和下载媒体需要配套使用基于 [RedLink（上游作者 boaleiyt）](https://github.com/boaleiyt/redlink) 改编的拾光室适配插件。RedLink 通过 Vault 内的 Markdown 和媒体文件与拾光室协作，已落盘的本地收藏可独立浏览。
 
-当前版本为 `0.2.0-beta.2` 预发布：提取原版森林界面，连接独立插件的数据、主题和阅读管理。建议先在隔离 Vault 中安装体验。
+当前版本为 `0.2.0-beta.3` 预发布：恢复原版氛围文案、侧栏与狐狸装饰，连接独立插件的数据、主题和阅读管理。建议先在隔离 Vault 中安装体验。
 
-![森林收藏界面，截图使用虚构测试文章](docs/images/forest-wide.png)
+[界面恢复说明](docs/ui-restoration-preview.md)：侧栏当前只有「林间拾光室」入口，保留工作台、学习森林、灵感雷达与收藏室的导航挂载位置，连接后再显示对应入口。
+
+![森林收藏界面，截图使用虚构测试文章](docs/images/restored-wide.png)
 
 ## 安装
 
@@ -43,6 +45,6 @@ Inbox 用于待整理收藏，Bookmarks 用于已保留收藏。文章关联保�
 
 AI 默认关闭，关闭时隐藏相关入口及面板。开启只显示尚未连接状态，本版本不调用模型、不提供模拟推荐。正式知识入库、历史草稿迁移及网络获取媒体不属于本轮能力。
 
-原角色图的再分发权尚未核实，公开包保留森林背景与文字品牌，不包含该角色图。阅读器对过大的媒体或不支持的编码给出提示，可打开原笔记查看。
+狐狸素材由用户提供，用户已确认可随本插件分发；相关权利仍归原权利人，不因仓库 MIT 许可证而变更。阅读器对过大的媒体或不支持的编码给出提示，可打开原笔记查看。
 
-[English](README.en.md) · [更新日志](CHANGELOG.md) · [测试报告](docs/test-report-beta2.md) · [提取清单](docs/ui-extraction.md) · [开源调研](docs/open-source-comparison.md) · [数据与配置结构](docs/data-and-config.md) · [旧主题兼容预览](docs/legacy-import.md) · [素材说明](assets/README.md) · [许可证](LICENSE)
+[English](README.en.md) · [更新日志](CHANGELOG.md) · [测试报告](docs/test-report-beta3.md) · [提取清单](docs/ui-extraction.md) · [开源调研](docs/open-source-comparison.md) · [数据与配置结构](docs/data-and-config.md) · [旧主题兼容预览](docs/legacy-import.md) · [素材说明](assets/README.md) · [许可证](LICENSE)

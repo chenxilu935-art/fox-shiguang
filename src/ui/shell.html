@@ -3,11 +3,23 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: app: blob:; media-src app: data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'">
 <title>林间拾光室</title><style>/*SHIGUANG_STYLE*/</style></head>
 <body data-state="library">
+<aside class="room-nav" aria-label="房间导航">
+  <div class="brand forest-brand"><img class="forest-brand-image" src="__SHIGUANG_FOX__" alt=""><span class="forest-brand-label">林间拾光室</span></div>
+  <p class="nav-motto">A QUIET CORNER OF<br>YOUR WORLD</p>
+  <nav id="room-navigation" data-navigation-slot="rooms" aria-label="房间入口">
+    <!-- 预留房间：dashboard（狐の工作台）、learning（学习森林）、radar（灵感雷达）、collection（林间收藏室）。未来连接对应模块后再挂载按钮，当前仅开放林间拾光室。 -->
+    <button class="active" aria-current="page" data-library><i data-icon="folder"></i>林间拾光室</button>
+  </nav>
+  <div class="nav-forest"><div class="forest-decoration" aria-hidden="true"><img src="__SHIGUANG_FOX__" alt=""></div></div>
+  <div class="nav-note"><strong>故事在这里，慢慢留下。</strong><p>不用打卡，也不用写长评。<br>记得一个名字，就可以开始。</p></div>
+</aside>
 <main id="room-main">
   <header class="scene">
     <img id="scene-image" alt="森林窗边的暖灯、书桌与熟睡的猫" src="__SHIGUANG_HERO__">
     <div class="scene-shade"></div>
-    <div class="scene-title"><h1 id="room-title">林间拾光室</h1></div>
+    <div class="breadcrumb-row"><div class="breadcrumb">狐の工作台 <span>/</span> <span id="crumb-room">林间拾光室</span></div></div>
+    <div class="scene-title"><p class="eyebrow" id="room-eyebrow">THE FOREST OF LITTLE DISCOVERIES</p><h1 id="room-title">林间拾光室</h1><p id="room-subtitle">今天想发现些什么？</p><p id="room-description">从收藏的世界里，再次遇见那些令人心动的内容。让好奇继续生长。</p></div>
+    <p class="scene-quote" id="scene-quote">有些收藏，<br><span>是未来的自己会感谢的相遇。</span></p>
     <div class="hero-bottom" id="library-tools"><div class="tabs" role="tablist" aria-label="浏览内容"><button role="tab" aria-selected="true" data-tab="all">待整理 <span id="all-count"></span></button><button role="tab" aria-selected="false" data-tab="ai" hidden><i data-icon="sparkles"></i>AI</button><button role="tab" aria-selected="false" data-tab="selected">已保留 <span id="tab-count"></span></button></div></div>
   </header>
   <section id="library-view" aria-label="收藏">

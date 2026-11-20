@@ -1,6 +1,8 @@
 # Fox Shiguang — Forest Collection Room
 
-An independent desktop Obsidian plugin for browsing and organizing local RedNote Markdown collections. Plugin ID: `fox-shiguang`. Version `0.2.0-beta.2` is a prerelease; try it in a separate Vault first.
+An independent desktop Obsidian plugin for browsing and organizing local RedNote Markdown collections. Plugin ID: `fox-shiguang`. Version `0.2.0-beta.3` is a prerelease; try it in a separate Vault first.
+
+This release restores the original atmospheric text, single-entry sidebar and fox decoration. See the [UI restoration notes](docs/ui-restoration-preview.md). Future dashboard, learning, radar and collection navigation slots remain unconnected and are not shown as inactive entries.
 
 The forest layout, cards, selection panel and large reading dialog are extracted from the existing FoxDashboard implementation. The plugin uses its own settings and data layer and does not require FoxDashboard or RedLink to browse existing files.
 
@@ -35,6 +37,6 @@ Output: `dist/fox-shiguang/{manifest.json,main.js,styles.css,LICENSE}`. Package 
 
 Settings stay in the plugin's local `data.json`; topics stay in Markdown. Back up settings before uninstalling, because Obsidian removes the plugin directory. Collection and media directories remain managed by the Vault. Malformed topic properties or duplicate article IDs block edits instead of silently overwriting them. Obsidian may normalize YAML formatting when saving frontmatter.
 
-The original fox character artwork is excluded until redistribution rights are verified; the generated forest background and text branding remain. Historical drafts, knowledge-base publishing, AI services and downloading media are outside this release. Large media may need to be opened in the original note.
+The fox artwork was supplied by the user, who confirmed permission to distribute it with this plugin. Its rights remain with the original rights holder; the repository MIT license does not relicense this artwork. Historical drafts, knowledge-base publishing, AI services and downloading media are outside this release. Large media may need to be opened in the original note.
 
-[Chinese README](README.md) · [Changelog](CHANGELOG.md) · [Test report](docs/test-report-beta2.md) · [Extraction inventory](docs/ui-extraction.md) · [License](LICENSE)
+[Chinese README](README.md) · [Changelog](CHANGELOG.md) · [Test report](docs/test-report-beta3.md) · [Extraction inventory](docs/ui-extraction.md) · [License](LICENSE)
