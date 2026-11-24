@@ -38,7 +38,7 @@ function toast(message){$('room-toast').textContent=message;$('room-toast').hidd
 function toggle(id){const item=items.find(x=>x.id===id);if(item)item.selected=!item.selected;render();}
 function remove(id){const item=items.find(x=>x.id===id);if(item)item.selected=false;render();}
   function card(item) {
-    return `<article class="collection-entry"><button class="collection-card" data-select="${esc(item.id)}" aria-pressed="${item.selected}" aria-label="${item.selected?'取消选择':'选择'}：${esc(item.title)}">${image(item)}<span class="selection-tick" aria-hidden="true">✓</span><div class="card-copy"><h3>${esc(item.title)}</h3>${source(item)}<p class="card-summary">${esc(item.summary)}</p>${tags(item)}</div></button><div class="topic-card-actions"><button data-topic-item="${esc(item.id)}" aria-label="为${esc(item.title)}设置主题">设置主题</button><button data-preview="${esc(item.id)}">预览</button><button data-topic-metadata="${esc(item.id)}">来源与标签</button></div></article>`;
+    return `<article class="collection-entry"><button class="collection-card" data-select="${esc(item.id)}" aria-pressed="${item.selected}" aria-label="${item.selected?'取消选择':'选择'}：${esc(item.title)}">${image(item)}<span class="selection-tick" aria-hidden="true">✓</span><div class="card-copy"><h3>${esc(item.title)}</h3>${source(item)}<p class="card-summary">${esc(item.summary)}</p>${tags(item)}</div></button><div class="topic-card-actions"><button data-topic-item="${esc(item.id)}" aria-label="为${esc(item.title)}设置主题">设置主题</button><button data-preview="${esc(item.id)}">森林书桌</button>${item.knowledgePath?`<button data-open-knowledge="${esc(item.id)}">已入库 ↗</button>`:''}<button data-topic-metadata="${esc(item.id)}">来源与标签</button></div></article>`;
   }
 
 function renderLibrary(){
@@ -56,6 +56,7 @@ function renderLibrary(){
   if(state.sort==='title-desc')list.sort((a,b)=>b.title.localeCompare(a.title,'zh-CN'));
   $('collection-grid').innerHTML=list.length?list.map(card).join(''):`<div class="empty-state">${esc(currentSource.error||(query||state.category!=='全部'?'没有符合条件的收藏':'此目录暂无收藏'))}</div>`;
   for(const [attribute,fn] of [['select',toggle],['preview',showDesk],['topic-item',openAssignment],['topic-metadata',openMetadata]])$('collection-grid').querySelectorAll('[data-'+attribute+']').forEach(b=>b.onclick=()=>fn(b.getAttribute('data-'+attribute)));
+  $('collection-grid').querySelectorAll('[data-open-knowledge]').forEach(b=>b.onclick=()=>post('fox-shiguang-open-knowledge',{key:b.dataset.openKnowledge}));
   $('browse-status').textContent=(currentSource.warnings||[]).join('；');
   $('topic-store-status').textContent=topicSnapshot.error||'';$('topic-store-status').hidden=!topicSnapshot.error;
   const chosen=selected();$('selection-count').textContent=chosen.length;
@@ -90,12 +91,12 @@ function renderDesk(){
   if(state.view==='desk')renderReading();
 }
 function render(){renderLibrary();renderDesk();}
-function showLibrary(){state.view='library';if($('desk-view').open)$('desk-view').close();document.documentElement.classList.remove('preview-open');releaseOriginals();readRequests.clear();}
-function showDesk(id){const item=items.find(x=>x.id===id)||selected()[0];if(!item)return;
- activeKey=topicKey(item);state.view='desk';if(!originals.has(activeKey)){originals.set(activeKey,{loading:true});const request=++requestNumber;readRequests.set(activeKey,request);post('fox-shiguang-read-original',{key:activeKey,request,revision:topicSnapshot.data.revision});}renderDesk();
- if(!$('desk-view').open){$('desk-view').showModal();document.documentElement.classList.add('preview-open');}
+async function showLibrary(){if(!await desk.flush())return false;desk.hideCapture();state.view='library';if($('desk-view').open){await desk.animateClose();$('desk-view').close();}document.documentElement.classList.remove('preview-open');releaseOriginals();readRequests.clear();desk.animateReturn();return true;}
+async function showDesk(id){if(!await desk.flush())return;const item=items.find(x=>x.id===id)||selected()[0];if(!item)return;
+ activeKey=topicKey(item);state.view='desk';desk.ensure(item);if(!originals.has(activeKey)){originals.set(activeKey,{loading:true});const request=++requestNumber;readRequests.set(activeKey,request);post('fox-shiguang-read-original',{key:activeKey,request,revision:topicSnapshot.data.revision});}renderDesk();
+ if(!$('desk-view').open){$('desk-view').showModal();desk.animateOpen(item);document.documentElement.classList.add('preview-open');}
 }
-function switchPage(page){if(page===currentSource.page)return;showLibrary();post('fox-shiguang-switch-page',{page});}
+async function switchPage(page){if(page===currentSource.page)return;if(!await showLibrary())return;post('fox-shiguang-switch-page',{page});}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{if(b.dataset.tab==='ai'){toast('尚未连接 AI 服务');return;}switchPage(b.dataset.tab==='selected'?'bookmarks':'inbox');});
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));
 document.querySelectorAll('[data-library]').forEach(b=>b.onclick=showLibrary);
@@ -103,11 +104,12 @@ $('sort').insertAdjacentHTML('beforeend','<option value="title-desc">标题倒�
 $('clear-selection').onclick=()=>{items.forEach(x=>x.selected=false);render();};$('enter-desk').onclick=()=>showDesk();$('close-preview').onclick=showLibrary;
 $('desk-view').addEventListener('cancel',e=>{e.preventDefault();showLibrary();});$('preview-note').onchange=()=>showDesk(items.find(x=>topicKey(x)===$('preview-note').value)?.id);
 $('open-original-source').onclick=()=>{const original=originals.get(activeKey);if(original?.url)post('fox-shiguang-open-reader-link',{key:activeKey,url:original.url});};
-function collectionAction(action){if(busy||!selected().length)return;if(!confirm(action==='trash'?'将所选 Markdown 移到回收站？媒体文件会保留。':'将所选文章移到已保留目录？'))return;busy=true;post('fox-shiguang-collection-action',{action,keys:selected().map(topicKey),revision:topicSnapshot.data.revision});render();}
+function collectionAction(action){if(busy||!selected().length)return;if(action==='trash'&&!confirm('将所选 Markdown 移到回收站？媒体文件会保留。'))return;busy=true;post('fox-shiguang-collection-action',{action,keys:selected().map(topicKey),revision:topicSnapshot.data.revision});render();}
 $('retain-selection').onclick=()=>collectionAction('retain');$('trash-selection').onclick=()=>collectionAction('trash');
 addEventListener('message',event=>{
  const m=event.data;if(event.source!==parent||m?.token!==SHIGUANG_TOKEN)return;
- if(m.type==='fox-shiguang-collection-result'){busy=false;render();toast(m.error||`已处理 ${m.completed?.length||0} 篇${m.failed?.length?'；'+m.failed.map(x=>x.error).join('；'):''}`);}
+ if(m.type==='fox-shiguang-collection-result'){busy=false;render();toast(m.error||`已处理 ${m.completed?.length||0} 篇${m.failed?.length?'；'+m.failed.map(x=>x.error).join('；'):''}`);if(m.undoRetain){const undo=document.createElement('button');undo.textContent='撤销保留';undo.onclick=()=>post('fox-shiguang-undo-retain');$('room-toast').append(' · ',undo);}}
+ if(m.type==='fox-shiguang-retain-undone')toast('已撤销保留');
  if(m.type==='fox-shiguang-original-result'&&readRequests.get(m.key)===m.request){originals.set(m.key,m.error?{error:m.error}:m.result);if(activeKey===m.key&&state.view==='desk')renderReading();}
  if(m.type==='fox-shiguang-topics-result'&&m.snapshot?.data){topicSnapshot=m.snapshot;if(topicPending&&m.request===topicPending.request){const pending=topicPending;topicPending=null;$(pending.target).textContent=m.error||'已保存';if(m.error)toast(m.error);else{if(pending.close)$('topic-assignment-dialog').close();if(pending.clear)$('new-topic-name').value='';deleteTopic=null;$('topic-delete-confirm').hidden=true;}}render();renderTopicManager();updateTopicBusy();}
  if(m.type==='fox-shiguang-source'){
@@ -164,5 +166,6 @@ addEventListener('message',event=>{
   document.querySelectorAll('[data-close-topic-dialog]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
   $('topic-search').oninput=()=>renderLibrary();
 
+/*DESK_CODE*/
 render();
 })();

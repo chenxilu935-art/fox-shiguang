@@ -2,7 +2,7 @@
 
 面向 Obsidian 的本地小红书收藏整理与展示插件，插件 ID 为 `fox-shiguang`。抓取小红书收藏和下载媒体需要配套使用基于 [RedLink（上游作者 boaleiyt）](https://github.com/boaleiyt/redlink) 改编的拾光室适配插件。RedLink 通过 Vault 内的 Markdown 和媒体文件与拾光室协作，已落盘的本地收藏可独立浏览。
 
-当前版本为 `0.2.0-beta.3` 预发布：恢复原版氛围文案、侧栏与狐狸装饰，连接独立插件的数据、主题和阅读管理。建议先在隔离 Vault 中安装体验。
+当前版本为 `0.3.0-beta.1` 预发布：恢复原版氛围文案、侧栏与狐狸装饰，连接独立插件的数据、主题和阅读管理。建议先在隔离 Vault 中安装体验。
 
 [界面恢复说明](docs/ui-restoration-preview.md)：侧栏当前只有「林间拾光室」入口，保留工作台、学习森林、灵感雷达与收藏室的导航挂载位置，连接后再显示对应入口。
 
@@ -43,8 +43,19 @@ npm run build
 
 Inbox 用于待整理收藏，Bookmarks 用于已保留收藏。文章关联保存在 Markdown 的 `shiguangTopics` 中，改名或移动不改变原帖身份。目录与主题名称由 Obsidian 原生设置维护。首页不另设设置或工作台入口。
 
-AI 默认关闭，关闭时隐藏相关入口及面板。开启只显示尚未连接状态，本版本不调用模型、不提供模拟推荐。正式知识入库、历史草稿迁移及网络获取媒体不属于本轮能力。
+AI 默认关闭，关闭时隐藏相关入口及面板。开启只显示尚未连接状态，本版本不调用模型、不提供模拟推荐。历史固定字段草稿迁移及网络获取媒体不属于本轮能力。
 
 狐狸素材由用户提供，用户已确认可随本插件分发；相关权利仍归原权利人，不因仓库 MIT 许可证而变更。阅读器对过大的媒体或不支持的编码给出提示，可打开原笔记查看。
 
-[English](README.en.md) · [更新日志](CHANGELOG.md) · [测试报告](docs/test-report-beta3.md) · [提取清单](docs/ui-extraction.md) · [开源调研](docs/open-source-comparison.md) · [数据与配置结构](docs/data-and-config.md) · [旧主题兼容预览](docs/legacy-import.md) · [素材说明](assets/README.md) · [许可证](LICENSE)
+[English](README.en.md) · [更新日志](CHANGELOG.md) · [测试报告](docs/stage4-test-report.md) · [提取清单](docs/ui-extraction.md) · [开源调研](docs/open-source-comparison.md) · [数据与配置结构](docs/data-and-config.md) · [旧主题兼容预览](docs/legacy-import.md) · [素材说明](assets/README.md) · [许可证](LICENSE)
+
+
+## 森林书桌与知识入库
+
+在收藏卡片点击「预览」进入书桌。宽屏左边阅读原文，右边自由整理；窄屏用「阅读／整理」切换。选中文字后点「摘录到草稿」，可以指定插入位置、修改摘录、移动段落或撤销刚添加的摘录。默认空白，四种模板只插入可编辑的初始内容。
+
+草稿自动保存于插件目录的 `desk-drafts.json`，按原帖稳定 ID 关联；此文件是个人资料，请自行保留，卸载前备份。旧版固定字段草稿不会被覆盖。显示「草稿已保存」后关闭或退出。
+
+已保留到 Bookmarks 的收藏可「生成知识笔记」。在预览中修改标题、内容顺序、主题和目录；只有点击「确认入库」才创建文件。默认 `20-Knowledge/`，一篇收藏对应一篇笔记，重复确认打开既有结果，不覆盖同名文件。只输出你的整理及引用出处，不自动复制全文或媒体。卡片的「已入库」可打开知识笔记，知识笔记提供原生链接返回原收藏。
+
+[Stage 4 验证记录](docs/stage4-test-report.md) · [本轮清理结果](docs/stage4-cleanup.md)

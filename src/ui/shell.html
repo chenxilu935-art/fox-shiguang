@@ -42,18 +42,21 @@
   </section>
 </main>
 <dialog id="desk-view" class="desk-preview" aria-labelledby="desk-note-title">
-  <div class="preview-frame">
+  <div class="preview-frame"><button id="capture-excerpt" class="capture-excerpt" hidden>摘录到草稿</button>
     <header class="preview-header">
       <div class="preview-heading-row"><span>森林书桌</span><button id="close-preview" class="preview-close" aria-label="关闭预览">×</button></div>
       <h2 id="desk-note-title" class="desk-note-title"></h2><p id="preview-source" class="subtle"></p>
       <div class="preview-controls"><label class="preview-note-control"><span id="desk-count" hidden></span><select id="preview-note" aria-label="切换预览内容"></select></label></div>
     </header>
-    <section class="preview-body paper" aria-label="原文阅读">
+    <div class="desk-mobile-tabs" role="tablist"><button data-desk-tab="read" aria-selected="true">阅读</button><button data-desk-tab="edit" aria-selected="false">我的整理</button></div>
+    <section class="preview-body paper desk-columns-stage4" aria-label="原文与我的整理">
         <div id="original-pane"><div id="original-content" class="original-content markdown-rendered" aria-live="polite"></div><details id="original-details"><summary>来源详情</summary><div id="original-metadata"></div></details><button id="open-original-source" class="paper-button">打开原帖来源 ↗</button></div>
+    <aside id="desk-editor" class="desk-editor"><div class="editor-heading"><h3>我的整理</h3><span id="desk-save-status" role="status"></span><button id="retry-draft" hidden>重试保存</button></div><label class="sr-only" for="desk-title">笔记标题</label><input id="desk-title" placeholder="笔记标题" maxlength="160"><div class="editor-tools"><select id="desk-template" aria-label="插入模板"><option value="">插入模板</option><option>阅读笔记</option><option>灵感收集</option><option>方法与经验</option><option>旅行攻略</option></select><button id="add-text-block">添加文字</button><button id="undo-excerpt" disabled>撤销摘录</button></div><label class="insert-control">插入位置<select id="desk-insert-position" aria-label="摘录插入位置"></select></label><div id="desk-blocks"></div><button id="generate-knowledge" class="gold">生成知识笔记</button><p id="desk-action-status" role="status"></p></aside>
     </section>
     <footer class="preview-footer"><button class="outline-button" data-library>返回收藏</button><p id="preview-feedback" role="status" hidden></p></footer>
   </div>
 </dialog>
+<dialog id="knowledge-preview" class="knowledge-preview"><header><h2>入库预览</h2><button id="close-knowledge-preview" aria-label="关闭入库预览">×</button></header><label>标题<input id="knowledge-title" maxlength="160"></label><label>保存目录<input id="knowledge-folder" value="20-Knowledge"></label><div id="knowledge-topics"></div><div id="knowledge-blocks"></div><p id="knowledge-error" role="alert"></p><button id="confirm-knowledge" class="gold">确认入库</button></dialog>
 <div id="room-toast" class="toast" role="status" hidden></div>
 <dialog id="topics-dialog" class="topic-dialog" aria-labelledby="topics-title"><div class="panel-heading"><div><h2 id="topics-title">管理主题分类</h2></div><button data-close-topic-dialog aria-label="关闭分类管理">×</button></div><div id="topic-manager-list"></div><div id="topic-create-form" class="topic-create" role="group" aria-label="新增主题分类"><label><span class="sr-only">新分类名称</span><input id="new-topic-name" maxlength="32" placeholder="新建一个主题…" required></label><button class="gold" type="button">新增分类</button></div><div id="topic-delete-confirm" hidden><p id="topic-delete-message"></p><div class="dialog-actions"><button id="topic-delete-cancel">保留分类</button><button id="topic-delete-accept" class="gold">仅删除分类</button></div></div><p class="topic-error" id="topic-manager-error" role="status"></p></dialog>
 <dialog id="topic-assignment-dialog" class="topic-dialog" aria-labelledby="topic-assignment-title"><div class="panel-heading"><h2 id="topic-assignment-title">为收藏选择主题</h2><button data-close-topic-dialog aria-label="关闭主题选择">×</button></div><p id="topic-assignment-name" class="subtle"></p><div id="topic-assignment-options"></div><p class="topic-error" id="topic-assignment-error" role="status"></p><button id="topic-assignment-save" class="gold">保存主题</button></dialog>

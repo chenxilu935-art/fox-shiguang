@@ -15,7 +15,7 @@ await build({
   format: 'cjs',
   target: 'es2020',
   loader: { '.jpg': 'dataurl', '.png': 'dataurl', '.html': 'text', '.css': 'text', '.js': 'text' },
-  external: ['obsidian']
+  external: ['obsidian', 'fs', 'path']
 });
 await mkdir(folder, { recursive: true });
 await Promise.all(['manifest.json', 'styles.css', 'LICENSE'].map(file => copyFile(file, folder + '/' + file)));

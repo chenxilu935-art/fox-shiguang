@@ -19,3 +19,6 @@ coverage/
 /RedNote/
 *.pem
 *.key
+
+# Personal freeform desk drafts
+desk-drafts.json

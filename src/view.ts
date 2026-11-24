@@ -7,9 +7,12 @@ import type FoxShiguangPlugin from './main';
 import template from './ui/shell.html';
 import stylesheet from './ui/forest.css';
 import ui from './ui/ui.js';
+import deskUi from './ui/desk.js';
+import { getDeskStore, findKnowledge, findKnowledgeIndex, validateDeskContent, publishKnowledge } from './desk';
 import forestDesk from '../assets/forest-desk.jpg';
 import foxPines from '../assets/fox-pines.png';
 
+const recoveryDrafts = new WeakMap<App, Map<string, any>>();
 export const ROOM_VIEW = 'fox-shiguang-room';
 type Page = 'inbox' | 'bookmarks';
 type SourceStatus = 'ready' | 'missing' | 'file';
@@ -62,6 +65,10 @@ export class ShiguangView extends ItemView {
   private readerLinks = new Map<string, Set<string>>();
   private closed = false;
   private operating = false;
+  private deskKeys = new Set<string>();
+  private closeFlush?: (okay: boolean) => void;
+  private retained: { file: TFile; from: string; to: string; mtime: number }[] = [];
+  private get deskStore() { return getDeskStore(this.app, this.plugin.manifest.dir!); }
 
   constructor(leaf: WorkspaceLeaf, private readonly plugin: FoxShiguangPlugin) { super(leaf); }
   getViewType(): string { return ROOM_VIEW; }
@@ -74,12 +81,12 @@ export class ShiguangView extends ItemView {
     this.frame = this.contentEl.createEl('iframe', { attr: { title: '林间拾光室', sandbox: 'allow-scripts allow-modals' } });
     this.frame.style.cssText = 'width:100%;height:100%;border:0;display:block;background:#071d15';
     this.registerDomEvent(window, 'message', event => { void this.receive(event); });
-    const script = `const SHIGUANG_TOKEN=${JSON.stringify(this.token)};const SHIGUANG_SOURCE={page:'inbox',counts:{inbox:0,bookmarks:0},ai:false};const SHIGUANG_ITEMS=[];const SHIGUANG_TOPICS={data:{revision:0,categories:[],assignments:{}}};${ui}`;
+    const script = `const SHIGUANG_TOKEN=${JSON.stringify(this.token)};const SHIGUANG_SOURCE={page:'inbox',counts:{inbox:0,bookmarks:0},ai:false};const SHIGUANG_ITEMS=[];const SHIGUANG_TOPICS={data:{revision:0,categories:[],assignments:{}}};${ui.replace('/*DESK_CODE*/', () => deskUi)}`;
     this.frame.srcdoc = template.replace('/*SHIGUANG_STYLE*/', () => stylesheet).replace('__SHIGUANG_HERO__', () => forestDesk).replaceAll('__SHIGUANG_FOX__', () => foxPines).replace('/*SHIGUANG_SCRIPT*/', () => script);
     this.frame.onload = () => { this.renderSources(); };
     await this.plugin.rescan();
   }
-  async onClose(): Promise<void> { this.closed = true; this.generation++; this.current.clear(); this.readerLinks.clear(); this.frame = undefined; this.contentEl.empty(); }
+  async onClose(): Promise<void> { if(this.frame) await new Promise<void>(resolve => { const timer=window.setTimeout(()=>{new Notice('未收到草稿保存确认，请检查草稿文件。',10000);resolve();},12000); this.closeFlush=() => {window.clearTimeout(timer);resolve();};this.post('fox-shiguang-flush-desk',{request:Date.now()}); }); this.closed = true; this.generation++; this.current.clear(); this.readerLinks.clear(); this.frame = undefined; this.contentEl.empty(); }
   private post(type: string, data: Record<string, unknown> = {}): void { this.frame?.contentWindow?.postMessage({ type, token: this.token, ...data }, '*'); }
   private topics() {
     const assignments: Record<string, string[]> = {};
@@ -92,11 +99,12 @@ export class ShiguangView extends ItemView {
     const config = this.plugin.config, snapshot = this.plugin.getSources(), page = this.page ?? config.defaultPage;
     const notes = snapshot.notes[page]; this.current = new Map(notes.map(article => [article.key, article]));
     this.revision++;
+    const knowledgeIndex = await findKnowledgeIndex(this.app);
     const items = await Promise.all(notes.map(async article => ({
       id: article.key, fingerprint: `${article.path}:${article.file.stat.mtime}:${article.file.stat.size}`, topicKey: article.key, title: article.title, author: article.author, source: article.author || '',
       sourceUrl: article.sourceUrl, noteId: article.key.slice(4), tags: article.tags || [], summary: article.summary || '', selected: false,
       invalid: article.topicState === 'invalid' || snapshot.duplicateKeys.has(article.key),
-      coverUrl: await this.coverData(article),
+      coverUrl: await this.coverData(article), knowledgePath: knowledgeIndex.get(article.key)?.path,
     })));
     if (this.closed || generation !== this.generation) return;
     const status = snapshot.status[page];
@@ -121,6 +129,19 @@ export class ShiguangView extends ItemView {
     const m = event.data;
     if (this.closed || event.source !== this.frame?.contentWindow || m?.token !== this.token) return;
     try {
+      if (m.type === 'fox-shiguang-desk-flushed') { if(!m.okay&&m.draft){validateDeskContent(m.key,m.draft);let pending=recoveryDrafts.get(this.app);if(!pending){pending=new Map();recoveryDrafts.set(this.app,pending);}pending.set(m.key,m.draft);new Notice('草稿未能写盘，文字保留在当前 Obsidian 会话，请重新打开书桌重试保存。',10000);}this.closeFlush?.(m.okay === true); return; }
+      if (m.type === 'fox-shiguang-desk' && Number.isSafeInteger(m.request)) {
+        try {
+          const article = this.current.get(m.key);
+          if (m.action === 'load') { if (!article) throw Error('收藏已变化，请重新打开。'); this.deskKeys.add(m.key); this.post('fox-shiguang-desk-result', {request:m.request,recovered:recoveryDrafts.get(this.app)?.has(m.key)===true,draft:recoveryDrafts.get(this.app)?.get(m.key)??await this.deskStore.load(m.key)}); }
+          else if (m.action === 'save') { if (!this.deskKeys.has(m.key)) throw Error('请先打开这篇草稿。'); const draft=await this.deskStore.save(m.key,m.draft,m.revision); recoveryDrafts.get(this.app)?.delete(m.key);this.post('fox-shiguang-desk-result',{request:m.request,draft}); }
+          else if (m.action === 'publish') { if (!article || this.operating) throw Error('收藏已变化或其他操作尚未完成。'); this.operating=true;try { const file=await publishKnowledge(this.app,article,this.plugin.config.paths,m.note,this.plugin.config.categories); this.post('fox-shiguang-desk-result',{request:m.request,path:file.path}); await this.plugin.rescan(); } finally {this.operating=false;} }
+          else throw Error('未知书桌操作。');
+        } catch(cause) { this.post('fox-shiguang-desk-result',{request:m.request,error:cause instanceof Error?cause.message:'书桌操作失败。'}); }
+        return;
+      }
+      if(m.type==='fox-shiguang-open-knowledge') {const file=await findKnowledge(this.app,m.key);if(!file)throw Error('未找到对应知识笔记。');await this.app.workspace.getLeaf('tab').openFile(file);return;}
+      if(m.type==='fox-shiguang-undo-retain') { const batch=this.retained;this.retained=[];for(const entry of batch){if(entry.file.path!==entry.to||entry.file.stat.mtime!==entry.mtime||this.app.vault.getAbstractFileByPath(entry.from))throw Error('文件已变化，无法撤销移动。');await this.app.vault.rename(entry.file,entry.from);}await this.plugin.rescan();this.post('fox-shiguang-retain-undone');return;}
       if (m.type === 'fox-shiguang-switch-page' && (m.page === 'inbox' || m.page === 'bookmarks')) { this.page = m.page; await this.publish(); return; }
       if (m.type === 'fox-shiguang-topics') { await this.editTopics(m); return; }
       if (m.type === 'fox-shiguang-read-original' && Number.isSafeInteger(m.request)) {
@@ -141,8 +162,10 @@ export class ShiguangView extends ItemView {
         this.operating = true;
         try {
           const operation = m.action === 'retain' ? retainArticles : trashArticles;
+          const before = (articles as Article[]).map(a=>({key:a.key,file:a.file,from:a.path}));
           const result = await operation(this.app, () => this.plugin.config.paths, articles as Article[]);
-          await this.plugin.rescan(); this.post('fox-shiguang-collection-result', { ...result });
+          if(m.action==='retain') this.retained=before.filter(a=>result.completed.includes(a.key)).map(a=>({file:a.file,from:a.from,to:a.file.path,mtime:a.file.stat.mtime}));
+          await this.plugin.rescan(); this.post('fox-shiguang-collection-result', { ...result, undoRetain:m.action==='retain'&&this.retained.length>0 });
         } finally { this.operating = false; }
       }
     } catch (cause) {

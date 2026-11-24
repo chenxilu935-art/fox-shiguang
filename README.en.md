@@ -1,6 +1,6 @@
 # Fox Shiguang — Forest Collection Room
 
-An independent desktop Obsidian plugin for browsing and organizing local RedNote Markdown collections. Plugin ID: `fox-shiguang`. Version `0.2.0-beta.3` is a prerelease; try it in a separate Vault first.
+An independent desktop Obsidian plugin for browsing and organizing local RedNote Markdown collections. Plugin ID: `fox-shiguang`. Version `0.3.0-beta.1` is a prerelease; try it in a separate Vault first.
 
 This release restores the original atmospheric text, single-entry sidebar and fox decoration. See the [UI restoration notes](docs/ui-restoration-preview.md). Future dashboard, learning, radar and collection navigation slots remain unconnected and are not shown as inactive entries.
 
@@ -39,4 +39,11 @@ Settings stay in the plugin's local `data.json`; topics stay in Markdown. Back u
 
 The fox artwork was supplied by the user, who confirmed permission to distribute it with this plugin. Its rights remain with the original rights holder; the repository MIT license does not relicense this artwork. Historical drafts, knowledge-base publishing, AI services and downloading media are outside this release. Large media may need to be opened in the original note.
 
-[Chinese README](README.md) · [Changelog](CHANGELOG.md) · [Test report](docs/test-report-beta3.md) · [Extraction inventory](docs/ui-extraction.md) · [License](LICENSE)
+[Chinese README](README.md) · [Changelog](CHANGELOG.md) · [Test report](docs/stage4-test-report.md) · [Extraction inventory](docs/ui-extraction.md) · [License](LICENSE)
+
+
+## Forest Desk
+
+Read and edit side by side (tabs on narrow screens). Select original text to insert a sourced quote slip; edit, reorder, delete or undo blocks in your own freeform document. Optional templates insert editable Markdown only. Drafts autosave to the private plugin file `desk-drafts.json`; wait for the saved status before exiting and back it up before uninstalling.
+
+For Bookmarks, generate a preview, edit title/content/topics/folder and confirm once to create a note in `20-Knowledge/` by default. Preview creates no knowledge file. Stable source IDs prevent duplicate publication or overwriting existing notes. The note contains the ordered user document and sourced excerpts, not a copy of the whole original or media. Native links and the collection status connect both documents.
